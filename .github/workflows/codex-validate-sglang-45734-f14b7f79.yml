@@ -1,0 +1,174 @@
+name: Validate SGLang 45734 f14b7f79
+
+on:
+  push:
+    branches: [codex-validate/sglang-45734-f14b7f79]
+
+permissions:
+  contents: read
+
+env:
+  SOURCE_WORKTREE: verified-source
+  SOURCE_REPOSITORY: https://github.com/sgl-project/sglang.git
+  AUTHOR_REPOSITORY: https://github.com/GoldArowana/sglang.git
+  AUTHOR_REF: refs/heads/fix/chat-parsing-integer-precision
+  AUTHOR_SHA: bdee909fb96e6efefd27d64b417c3fd4aea1d15c
+  MAIN_SHA: 2005571ac14aba66530a92e79c4e1e9883a2850c
+  MAIN_TREE: ed7e2e179e6aff60cf168e7613da1bdd351a1325
+  SOURCE_SHA: d50855d2a6f3f3607a8f880c1a41d085d3af7dc4
+  SOURCE_TREE: 930b2109323458d4493350969957e9deabf1be72
+  SOURCE_COMMIT_PAYLOAD_B64: dHJlZSA5MzBiMjEwOTMyMzQ1OGQ0NDkzMzUwOTY5OTU3ZTlkZWFiZjFiZTcyCnBhcmVudCBiZGVlOTA5ZmI5NmU2ZWZlZmQyN2Q2NGI0MTdjM2ZkNGFlYTFkMTVjCnBhcmVudCAyMDA1NTcxYWMxNGFiYTY2NTMwYTkyZTc5YzRlMWU5ODgzYTI4NTBjCmF1dGhvciBKaW4gTG9uZyA8YXJvd2FuYS5qYXZhQHFxLmNvbT4gMTc5NTYxMDIyMiArMDgwMApjb21taXR0ZXIgSmluIExvbmcgPGFyb3dhbmEuamF2YUBxcS5jb20+IDE3OTU2MTAyMjIgKzA4MDAKCk1lcmdlIHVwc3RyZWFtIG1haW4gaW50byBmaXgvY2hhdC1wYXJzaW5nLWludGVnZXItcHJlY2lzaW9uCg==
+  PARSER_PATH: python/sglang/srt/parser/chat_parsing/response_parser.py
+  TEST_PATH: test/registered/unit/parser/test_chat_parsing.py
+  GIT_TERMINAL_PROMPT: "0"
+
+jobs:
+  validate:
+    if: github.repository == 'GoldArowana/sglang' && github.ref == 'refs/heads/codex-validate/sglang-45734-f14b7f79'
+    name: ${{ matrix.validation }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        validation: [parser-cpu, pre-commit]
+    steps:
+      - name: Materialize and verify the exact source merge
+        shell: bash
+        timeout-minutes: 8
+        run: |
+          set -Eeuo pipefail
+          test "$GITHUB_EVENT_NAME" = push
+          test "$GITHUB_REF" = refs/heads/codex-validate/sglang-45734-f14b7f79
+          printf 'Workflow commit %s will validate source commit %s\n' "$GITHUB_SHA" "$SOURCE_SHA"
+          test "$GITHUB_SHA" != "$SOURCE_SHA"
+          test "$(git ls-remote --exit-code "$AUTHOR_REPOSITORY" "$AUTHOR_REF" | cut -f1)" = "$AUTHOR_SHA"
+          git init -q --initial-branch=verification "$SOURCE_WORKTREE"
+          cd "$SOURCE_WORKTREE"
+          git fetch --no-tags --depth=1 "$SOURCE_REPOSITORY" "$MAIN_SHA"
+          test "$(git rev-parse FETCH_HEAD)" = "$MAIN_SHA"
+          test "$(git rev-parse FETCH_HEAD^{tree})" = "$MAIN_TREE"
+          git fetch --no-tags --depth=1 "$AUTHOR_REPOSITORY" "$AUTHOR_SHA"
+          test "$(git rev-parse FETCH_HEAD)" = "$AUTHOR_SHA"
+
+          export GIT_INDEX_FILE="$RUNNER_TEMP/sglang-source-index"
+          git read-tree "$MAIN_SHA"
+          git ls-tree -rz "$AUTHOR_SHA" -- "$PARSER_PATH" "$TEST_PATH" |
+            git update-index -z --index-info
+          test "$(git write-tree)" = "$SOURCE_TREE"
+          unset GIT_INDEX_FILE
+
+          commit=$(printf '%s' "$SOURCE_COMMIT_PAYLOAD_B64" | base64 --decode |
+            git hash-object --stdin -t commit -w)
+          test "$commit" = "$SOURCE_SHA"
+          test "$(git rev-list --parents -n1 "$commit")" = "$SOURCE_SHA $AUTHOR_SHA $MAIN_SHA"
+          git checkout --quiet --detach "$commit"
+          test "$(git rev-parse HEAD)" = "$SOURCE_SHA"
+          test "$(git rev-parse HEAD^{tree})" = "$SOURCE_TREE"
+          git diff HEAD --exit-code
+          test -z "$(git status --porcelain --untracked-files=all)"
+          printf 'Verified source %s at %s, tree %s\n' "$SOURCE_REPOSITORY" "$SOURCE_SHA" "$SOURCE_TREE"
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+        with:
+          python-version: "3.12"
+
+      - name: Set up uv
+        if: matrix.validation == 'parser-cpu'
+        uses: astral-sh/setup-uv@d4b2f3b6ecc6e67c4457f6d3e41ec42d3d0fcb86
+        with:
+          enable-cache: false
+
+      - name: Set up Node 20
+        if: matrix.validation == 'pre-commit'
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: "20"
+
+      - name: Run the upstream CPU setup
+        if: matrix.validation == 'parser-cpu'
+        shell: bash
+        working-directory: verified-source
+        timeout-minutes: 10
+        run: |
+          set -Eeuo pipefail
+          python3 --version
+          uv --version
+          bash scripts/ci/utils/install_rust_protoc.sh
+          git diff HEAD --exit-code
+
+      - name: Install the upstream CPU dependencies
+        if: matrix.validation == 'parser-cpu'
+        shell: bash
+        working-directory: verified-source
+        timeout-minutes: 20
+        env:
+          UV_SYSTEM_PYTHON: "1"
+        run: |
+          set -Eeuo pipefail
+          uv pip install -e "python[dev]" --index-strategy unsafe-best-match --prerelease allow
+          git diff HEAD --exit-code
+
+      - name: Run the registered parser file and CPU dispatcher
+        if: matrix.validation == 'parser-cpu'
+        shell: bash
+        working-directory: verified-source
+        timeout-minutes: 4
+        env:
+          HF_HUB_OFFLINE: "1"
+          TRANSFORMERS_OFFLINE: "1"
+          SGLANG_IS_IN_CI: "true"
+        run: |
+          set -Eeuo pipefail
+          python3 - <<'PY'
+          import importlib.util
+          import sys
+          from pathlib import Path
+          import torch
+
+          assert sys.version_info[:2] == (3, 12)
+          assert torch.__version__.split("+", 1)[0] == "2.14.1"
+          assert not torch.cuda.is_available()
+          origin = Path(importlib.util.find_spec("sglang").origin).resolve()
+          assert origin == (Path.cwd() / "python" / "sglang" / "__init__.py").resolve(), origin
+          print(f"Python {sys.version.split()[0]}, torch {torch.__version__}, SGLang source {origin}")
+          PY
+          direct_log="$RUNNER_TEMP/sglang-direct.log"
+          python3 "$TEST_PATH" 2>&1 | tee "$direct_log"
+          grep -E '^Ran [1-9][0-9]* tests? in ' "$direct_log"
+          selected="$RUNNER_TEMP/sglang-selected.txt"
+          dispatch_log="$RUNNER_TEMP/sglang-dispatch.log"
+          printf '%s\n' "$TEST_PATH" > "$selected"
+          python3 test/run_suite.py --hw cpu --suite base-a-test-cpu \
+            --only-file-list "$selected" --max-attempts 1 2>&1 | tee "$dispatch_log"
+          grep -E '^Precision filter .* -> 1 test file\(s\)$' "$dispatch_log"
+          grep -F 'Test Summary: 1/1 passed' "$dispatch_log"
+          git diff HEAD --exit-code
+
+      - name: Run upstream pre-commit for the complete source checkout
+        if: matrix.validation == 'pre-commit'
+        shell: bash
+        working-directory: verified-source
+        timeout-minutes: 30
+        run: |
+          set -Eeuo pipefail
+          python3 --version
+          node --version
+          python3 -m pip install pre-commit
+          pre-commit --version
+          pre-commit install
+          SKIP=no-commit-to-branch pre-commit run --all-files --show-diff-on-failure
+          git diff HEAD --exit-code
+
+      - name: Verify the final checked-out commit and working tree
+        if: always()
+        shell: bash
+        working-directory: verified-source
+        run: |
+          set -Eeuo pipefail
+          test "$(git rev-parse HEAD)" = "$SOURCE_SHA"
+          test "$(git rev-parse HEAD^{tree})" = "$SOURCE_TREE"
+          git diff HEAD --exit-code
+          git status --porcelain --untracked-files=all
+          test -z "$(git status --porcelain --untracked-files=all)"
