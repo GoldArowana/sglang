@@ -1,0 +1,456 @@
+name: Validate final SGLang ASR cd8fc4a5
+
+on:
+  push:
+    branches: [codex-validate/sglang-asr-final-cd8fc4a5]
+
+permissions:
+  contents: read
+
+jobs:
+  cpu:
+    if: github.repository == 'GoldArowana/sglang' && github.ref == 'refs/heads/codex-validate/sglang-asr-final-cd8fc4a5'
+    runs-on: ubuntu-latest
+    timeout-minutes: 55
+    env:
+      GIT_TERMINAL_PROMPT: "0"
+      HF_HUB_OFFLINE: "1"
+      TRANSFORMERS_OFFLINE: "1"
+      SGLANG_IS_IN_CI: "true"
+      BASE_SHA: 07a17a305cf017ccc7995d2bf23841ec9e219d44
+      BASE_TREE: 63917a61267a248f966b6118fdb3f4396c76df53
+      HEAD_SHA: 641d698fa5f90b2f78cfcbff1931b5d18c8c63f3
+      HEAD_TREE: 5865598d954db26968e669cf714af6ab00975bcd
+      SERVING_FILE: python/sglang/srt/entrypoints/openai/serving_transcription.py
+      HELPER_FILE: python/sglang/srt/entrypoints/openai/streaming_asr.py
+      TEST_FILE: test/registered/unit/entrypoints/openai/test_serving_transcription.py
+    steps:
+      - name: Verify exact upstream base and reconstruct candidate
+        shell: bash
+        timeout-minutes: 7
+        run: |
+          set -Eeuo pipefail
+          test "$GITHUB_EVENT_NAME" = push
+          git init --quiet verified-source
+          cd verified-source
+          git fetch --no-tags --depth=1 https://github.com/sgl-project/sglang.git "$BASE_SHA"
+          test "$(git rev-parse FETCH_HEAD)" = "$BASE_SHA"
+          git checkout --quiet --detach "$BASE_SHA"
+          test "$(git rev-parse 'HEAD^{tree}')" = "$BASE_TREE"
+          test -z "$(git status --porcelain --untracked-files=all)"
+
+          base64 --decode > "$RUNNER_TEMP/sglang-candidate.diff" <<'DIFF_B64'
+          ZGlmZiAtLWdpdCBhL3B5dGhvbi9zZ2xhbmcvc3J0L2VudHJ5cG9pbnRzL29wZW5haS9zZXJ2aW5n
+          X3RyYW5zY3JpcHRpb24ucHkgYi9weXRob24vc2dsYW5nL3NydC9lbnRyeXBvaW50cy9vcGVuYWkv
+          c2VydmluZ190cmFuc2NyaXB0aW9uLnB5CmluZGV4IDQ1ZmRlOTEzMDAyYmE4YjQyOTFmMmQ2MmJh
+          N2JkNDlhNzMwMzMxZjIuLmY0NjdmMzNjNWNkNGMzZTJmNWQ5NTExMmJlM2EyOWFjY2UwMzI0NTIg
+          MTAwNjQ0Ci0tLSBhL3B5dGhvbi9zZ2xhbmcvc3J0L2VudHJ5cG9pbnRzL29wZW5haS9zZXJ2aW5n
+          X3RyYW5zY3JpcHRpb24ucHkKKysrIGIvcHl0aG9uL3NnbGFuZy9zcnQvZW50cnlwb2ludHMvb3Bl
+          bmFpL3NlcnZpbmdfdHJhbnNjcmlwdGlvbi5weQpAQCAtNzc3LDcgKzc3Nyw3IEBAIGNsYXNzIE9w
+          ZW5BSVNlcnZpbmdUcmFuc2NyaXB0aW9uKE9wZW5BSVNlcnZpbmdCYXNlKToKICAgICAgICAgICAg
+          ICAgICAgICAgICAgICkKICAgICAgICAgICAgICAgICAgICAgICAgIHlpZWxkIGYiZGF0YToge2No
+          dW5rX3Jlc3AubW9kZWxfZHVtcF9qc29uKCl9XG5cbiIKIAotICAgICAgICAgICAgIyBTZW5kIGZp
+          bmFsIHN0b3AKKyAgICAgICAgICAgICMgVGhlIGZpbmFsIHByZWZpeCBzdXBlcnNlZGVzIHRva2Vu
+          IGNhcHMgb24gcHJvdmlzaW9uYWwgcHJlZml4ZXMuCiAgICAgICAgICAgICBjaHVua19yZXNwID0g
+          VHJhbnNjcmlwdGlvblN0cmVhbVJlc3BvbnNlKAogICAgICAgICAgICAgICAgIGlkPXJlcXVlc3Rf
+          aWQsCiAgICAgICAgICAgICAgICAgY3JlYXRlZD1jcmVhdGVkX3RpbWUsCkBAIC03ODUsNyArNzg1
+          LDkgQEAgY2xhc3MgT3BlbkFJU2VydmluZ1RyYW5zY3JpcHRpb24oT3BlbkFJU2VydmluZ0Jhc2Up
+          OgogICAgICAgICAgICAgICAgIGNob2ljZXM9WwogICAgICAgICAgICAgICAgICAgICBUcmFuc2Ny
+          aXB0aW9uU3RyZWFtQ2hvaWNlKAogICAgICAgICAgICAgICAgICAgICAgICAgZGVsdGE9RGVsdGFN
+          ZXNzYWdlKCksCi0gICAgICAgICAgICAgICAgICAgICAgICBmaW5pc2hfcmVhc29uPSJzdG9wIiwK
+          KyAgICAgICAgICAgICAgICAgICAgICAgIGZpbmlzaF9yZWFzb249KAorICAgICAgICAgICAgICAg
+          ICAgICAgICAgICAgICJsZW5ndGgiIGlmIHN0YXRlLmZpbmFsX291dHB1dF90cnVuY2F0ZWQgZWxz
+          ZSAic3RvcCIKKyAgICAgICAgICAgICAgICAgICAgICAgICksCiAgICAgICAgICAgICAgICAgICAg
+          ICkKICAgICAgICAgICAgICAgICBdLAogICAgICAgICAgICAgKQpkaWZmIC0tZ2l0IGEvcHl0aG9u
+          L3NnbGFuZy9zcnQvZW50cnlwb2ludHMvb3BlbmFpL3N0cmVhbWluZ19hc3IucHkgYi9weXRob24v
+          c2dsYW5nL3NydC9lbnRyeXBvaW50cy9vcGVuYWkvc3RyZWFtaW5nX2Fzci5weQppbmRleCA3ZDRl
+          MDcwYzFmYjNjZDU5M2VjOTBmNjEwNDdiNmQ4MzA3N2UxNmJiLi4yMzc2MzVlZjU5NzYyMGY5ZDcz
+          NjlkZGFmMDY4YTM4MWM0ZjExNDhlIDEwMDY0NAotLS0gYS9weXRob24vc2dsYW5nL3NydC9lbnRy
+          eXBvaW50cy9vcGVuYWkvc3RyZWFtaW5nX2Fzci5weQorKysgYi9weXRob24vc2dsYW5nL3NydC9l
+          bnRyeXBvaW50cy9vcGVuYWkvc3RyZWFtaW5nX2Fzci5weQpAQCAtNDUsNiArNDUsNyBAQCBjbGFz
+          cyBTdHJlYW1pbmdBU1JTdGF0ZToKICAgICBlbWl0dGVkX3RleHQ6IHN0ciA9ICIiCiAgICAgZnVs
+          bF90cmFuc2NyaXB0OiBzdHIgPSAiIgogICAgIGNodW5rX2luZGV4OiBpbnQgPSAwCisgICAgZmlu
+          YWxfb3V0cHV0X3RydW5jYXRlZDogYm9vbCA9IEZhbHNlCiAKICAgICBkZWYgZ2V0X3ByZWZpeF90
+          ZXh0KHNlbGYpIC0+IHN0cjoKICAgICAgICAgaWYgc2VsZi5jaHVua19pbmRleCA8IHNlbGYudW5m
+          aXhlZF9jaHVua19udW0gb3Igbm90IHNlbGYuZW1pdHRlZF90ZXh0OgpAQCAtMjA1LDYgKzIwNiw4
+          IEBAIGFzeW5jIGRlZiBwcm9jZXNzX2Fzcl9jaHVuaygKICAgICB0ZXh0ID0gbm9ybWFsaXplX3do
+          aXRlc3BhY2UoYWRhcHRlci5wb3N0cHJvY2Vzc190ZXh0KHJldC5nZXQoInRleHQiLCAiIikpKQog
+          CiAgICAgaWYgaXNfbGFzdDoKKyAgICAgICAgZmluaXNoX3JlYXNvbiA9IHJldC5nZXQoIm1ldGFf
+          aW5mbyIsIHt9KS5nZXQoImZpbmlzaF9yZWFzb24iKSBvciB7fQorICAgICAgICBzdGF0ZS5maW5h
+          bF9vdXRwdXRfdHJ1bmNhdGVkID0gZmluaXNoX3JlYXNvbi5nZXQoInR5cGUiKSA9PSAibGVuZ3Ro
+          IgogICAgICAgICBzdGF0ZS5mdWxsX3RyYW5zY3JpcHQgPSB0ZXh0CiAgICAgICAgIHJldHVybiBz
+          dGF0ZS5maW5hbGl6ZSgpCiAgICAgcmV0dXJuIHN0YXRlLnVwZGF0ZSh0ZXh0KQpkaWZmIC0tZ2l0
+          IGEvdGVzdC9yZWdpc3RlcmVkL3VuaXQvZW50cnlwb2ludHMvb3BlbmFpL3Rlc3Rfc2VydmluZ190
+          cmFuc2NyaXB0aW9uLnB5IGIvdGVzdC9yZWdpc3RlcmVkL3VuaXQvZW50cnlwb2ludHMvb3BlbmFp
+          L3Rlc3Rfc2VydmluZ190cmFuc2NyaXB0aW9uLnB5CmluZGV4IDUzMWE3YTA3ODBkMmUyMmNkNTE4
+          OTU3M2E1MjU3YWQ1MGYyZjllZDQuLmM5NWNlOThjOTA4MzMxODVkZTI0MGU3ZWI5MzIyNzI0Mjhl
+          M2VjY2EgMTAwNjQ0Ci0tLSBhL3Rlc3QvcmVnaXN0ZXJlZC91bml0L2VudHJ5cG9pbnRzL29wZW5h
+          aS90ZXN0X3NlcnZpbmdfdHJhbnNjcmlwdGlvbi5weQorKysgYi90ZXN0L3JlZ2lzdGVyZWQvdW5p
+          dC9lbnRyeXBvaW50cy9vcGVuYWkvdGVzdF9zZXJ2aW5nX3RyYW5zY3JpcHRpb24ucHkKQEAgLTMy
+          NSw2ICszMjUsNzggQEAgZGVmIF9sb25nX3dhdl9ieXRlcyhkdXJhdGlvbl9zOiBmbG9hdCA9IDY1
+          LjApIC0+IGJ5dGVzOgogICAgIHJldHVybiBidWYuZ2V0dmFsdWUoKQogCiAKK2NsYXNzIFRlc3RD
+          dW11bGF0aXZlQVNSU3RyZWFtKEN1c3RvbVRlc3RDYXNlKToKKyAgICBkZWYgc2V0VXAoc2VsZik6
+          CisgICAgICAgIHJlc2V0X2NvbnRleHQoKQorICAgICAgICBzZWxmLmFkZENsZWFudXAocmVzZXRf
+          Y29udGV4dCkKKyAgICAgICAgcHVibGlzaCgKKyAgICAgICAgICAgIFNlcnZlckFyZ3MobW9kZWxf
+          cGF0aD0iZHVtbXkiLCBhc3JfbWF4X2NvbmN1cnJlbnRfc2Vzc2lvbnM9MzIpLAorICAgICAgICAg
+          ICAgcm9sZT0idG9rZW5pemVyIiwKKyAgICAgICAgKQorCisgICAgZGVmIHRlc3RfZmluaXNoX3Jl
+          YXNvbl9mb2xsb3dzX2ZpbmFsX3ByZWZpeChzZWxmKToKKyAgICAgICAgIiIiQSBjYXBwZWQgZmlu
+          YWwgdHJhbnNjcmlwdCBtdXN0IHJlcG9ydCB0cnVuY2F0aW9uIGluIGl0cyB0ZXJtaW5hbCBldmVu
+          dC4iIiIKKyAgICAgICAgZmlyc3QgPSAib25lIHR3byB0aHJlZSBmb3VyIGZpdmUgc2l4IgorICAg
+          ICAgICBmaW5hbCA9IGZpcnN0ICsgIiBzZXZlbiIKKyAgICAgICAgY2FzZXMgPSAoCisgICAgICAg
+          ICAgICAoInNpbmdsZSBwcmVmaXggdHJ1bmNhdGVkIiwgWygicGFydGlhbCIsICJsZW5ndGgiKV0s
+          ICJwYXJ0aWFsIiwgImxlbmd0aCIpLAorICAgICAgICAgICAgKAorICAgICAgICAgICAgICAgICJm
+          aW5hbCBwcmVmaXggdHJ1bmNhdGVkIiwKKyAgICAgICAgICAgICAgICBbKGZpcnN0LCAic3RvcCIp
+          LCAoZmluYWwsICJsZW5ndGgiKV0sCisgICAgICAgICAgICAgICAgZmluYWwsCisgICAgICAgICAg
+          ICAgICAgImxlbmd0aCIsCisgICAgICAgICAgICApLAorICAgICAgICAgICAgKAorICAgICAgICAg
+          ICAgICAgICJwcm92aXNpb25hbCBsaW1pdCByZWNvdmVyZWQiLAorICAgICAgICAgICAgICAgIFso
+          Zmlyc3QsICJsZW5ndGgiKSwgKGZpbmFsLCAic3RvcCIpXSwKKyAgICAgICAgICAgICAgICBmaW5h
+          bCwKKyAgICAgICAgICAgICAgICAic3RvcCIsCisgICAgICAgICAgICApLAorICAgICAgICAgICAg
+          KCJtaXNzaW5nIG1ldGFkYXRhIiwgWygiZmFsbGJhY2siLCBOb25lKV0sICJmYWxsYmFjayIsICJz
+          dG9wIiksCisgICAgICAgICAgICAoImVtcHR5IHByZWZpeCB0cnVuY2F0ZWQiLCBbKCIiLCAibGVu
+          Z3RoIildLCAiIiwgImxlbmd0aCIpLAorICAgICAgICApCisKKyAgICAgICAgZm9yIG5hbWUsIHJl
+          cGxpZXMsIGV4cGVjdGVkX3RleHQsIGV4cGVjdGVkX3JlYXNvbiBpbiBjYXNlczoKKyAgICAgICAg
+          ICAgIHdpdGggc2VsZi5zdWJUZXN0KG5hbWU9bmFtZSk6CisgICAgICAgICAgICAgICAgdG0gPSBf
+          TW9ja0NodW5rVG9rZW5pemVyTWFuYWdlcigKKyAgICAgICAgICAgICAgICAgICAgW1tfY2h1bmso
+          dGV4dCwgZmluaXNoPXJlYXNvbildIGZvciB0ZXh0LCByZWFzb24gaW4gcmVwbGllc10KKyAgICAg
+          ICAgICAgICAgICApCisgICAgICAgICAgICAgICAgdG0ubW9kZWxfY29uZmlnLmhmX2NvbmZpZy5h
+          cmNoaXRlY3R1cmVzID0gWworICAgICAgICAgICAgICAgICAgICAiUXdlbjNBU1JGb3JDb25kaXRp
+          b25hbEdlbmVyYXRpb24iCisgICAgICAgICAgICAgICAgXQorICAgICAgICAgICAgICAgIHNlcnZp
+          bmcgPSBPcGVuQUlTZXJ2aW5nVHJhbnNjcmlwdGlvbih0bSkKKyAgICAgICAgICAgICAgICByYXdf
+          cmVxdWVzdCA9IE1vY2soaGVhZGVycz17fSkKKyAgICAgICAgICAgICAgICByYXdfcmVxdWVzdC5p
+          c19kaXNjb25uZWN0ZWQgPSBBc3luY01vY2socmV0dXJuX3ZhbHVlPUZhbHNlKQorCisgICAgICAg
+          ICAgICAgICAgYXN5bmMgZGVmIGRyaXZlKCk6CisgICAgICAgICAgICAgICAgICAgIHJlc3BvbnNl
+          ID0gYXdhaXQgc2VydmluZy5jcmVhdGVfdHJhbnNjcmlwdGlvbigKKyAgICAgICAgICAgICAgICAg
+          ICAgICAgIGF1ZGlvX2RhdGE9X2xvbmdfd2F2X2J5dGVzKGR1cmF0aW9uX3M9MiAqIGxlbihyZXBs
+          aWVzKSAtIDEpLAorICAgICAgICAgICAgICAgICAgICAgICAgbW9kZWw9IlF3ZW4vUXdlbjMtQVNS
+          LTAuNkIiLAorICAgICAgICAgICAgICAgICAgICAgICAgbGFuZ3VhZ2U9ImVuIiwKKyAgICAgICAg
+          ICAgICAgICAgICAgICAgIHJlc3BvbnNlX2Zvcm1hdD0ianNvbiIsCisgICAgICAgICAgICAgICAg
+          ICAgICAgICB0ZW1wZXJhdHVyZT0wLjAsCisgICAgICAgICAgICAgICAgICAgICAgICBzdHJlYW09
+          VHJ1ZSwKKyAgICAgICAgICAgICAgICAgICAgICAgIHJhd19yZXF1ZXN0PXJhd19yZXF1ZXN0LAor
+          ICAgICAgICAgICAgICAgICAgICApCisgICAgICAgICAgICAgICAgICAgIHNlbGYuYXNzZXJ0RXF1
+          YWwocmVzcG9uc2UubWVkaWFfdHlwZSwgInRleHQvZXZlbnQtc3RyZWFtIikKKyAgICAgICAgICAg
+          ICAgICAgICAgcmV0dXJuIFtmcmFtZSBhc3luYyBmb3IgZnJhbWUgaW4gcmVzcG9uc2UuYm9keV9p
+          dGVyYXRvcl0KKworICAgICAgICAgICAgICAgIGZyYW1lcyA9IGdldF9vcl9jcmVhdGVfZXZlbnRf
+          bG9vcCgpLnJ1bl91bnRpbF9jb21wbGV0ZShkcml2ZSgpKQorICAgICAgICAgICAgICAgIHNlbGYu
+          YXNzZXJ0RXF1YWwoIiIuam9pbihfZGVsdGFzX2Zyb21fc3NlKGZyYW1lcykpLCBleHBlY3RlZF90
+          ZXh0KQorICAgICAgICAgICAgICAgIHNlbGYuYXNzZXJ0RXF1YWwoZnJhbWVzLmNvdW50KCJkYXRh
+          OiBbRE9ORV1cblxuIiksIDEpCisgICAgICAgICAgICAgICAgc2VsZi5hc3NlcnRFcXVhbChmcmFt
+          ZXNbLTFdLCAiZGF0YTogW0RPTkVdXG5cbiIpCisgICAgICAgICAgICAgICAgY2hvaWNlcyA9IFsK
+          KyAgICAgICAgICAgICAgICAgICAganNvbi5sb2FkcyhmcmFtZS5yZW1vdmVwcmVmaXgoImRhdGE6
+          ICIpKVsiY2hvaWNlcyJdWzBdCisgICAgICAgICAgICAgICAgICAgIGZvciBmcmFtZSBpbiBmcmFt
+          ZXNbOi0xXQorICAgICAgICAgICAgICAgIF0KKyAgICAgICAgICAgICAgICBzZWxmLmFzc2VydEVx
+          dWFsKAorICAgICAgICAgICAgICAgICAgICBbY2hvaWNlWyJmaW5pc2hfcmVhc29uIl0gZm9yIGNo
+          b2ljZSBpbiBjaG9pY2VzXSwKKyAgICAgICAgICAgICAgICAgICAgW05vbmVdICogKGxlbihjaG9p
+          Y2VzKSAtIDEpICsgW2V4cGVjdGVkX3JlYXNvbl0sCisgICAgICAgICAgICAgICAgKQorICAgICAg
+          ICAgICAgICAgIHNlbGYuYXNzZXJ0RXF1YWwobGVuKHRtLnJlcXVlc3RzKSwgbGVuKHJlcGxpZXMp
+          KQorICAgICAgICAgICAgICAgIHNlbGYuYXNzZXJ0VHJ1ZShhbGwobm90IHJlcXVlc3Quc3RyZWFt
+          IGZvciByZXF1ZXN0IGluIHRtLnJlcXVlc3RzKSkKKworCiBjbGFzcyBUZXN0TG9uZ0F1ZGlvQ2h1
+          bmtlZE5vblN0cmVhbWluZyhDdXN0b21UZXN0Q2FzZSk6CiAgICAgIiIiQXVkaW8gbG9uZ2VyIHRo
+          YW4gV2hpc3BlcidzIDMwIHMgd2luZG93IG11c3QgYmUgc3BsaXQgaW50byBjaHVuawogICAgIHJl
+          cXVlc3RzIGFuZCB0aGUgdHJhbnNjcmlwdHMgc3RpdGNoZWQgaW4gb3JkZXIg4oCUIHdpdGhvdXQg
+          Y2h1bmtpbmcgdGhlCg==
+          DIFF_B64
+          base64 --decode > "$RUNNER_TEMP/sglang-candidate.commit" <<'COMMIT_B64'
+          dHJlZSA1ODY1NTk4ZDk1NGRiMjY5NjhlNjY5Y2Y3MTRhZjZhYjAwOTc1YmNkCnBhcmVudCAwN2Ex
+          N2EzMDVjZjAxN2NjYzc5OTVkMmJmMjM4NDFlYzllMjE5ZDQ0CmF1dGhvciBHb2xkQXJvd2FuYSA8
+          MjczOTkzNDkrR29sZEFyb3dhbmFAdXNlcnMubm9yZXBseS5naXRodWIuY29tPiAxNzk1NzE4MzQ2
+          ICswODAwCmNvbW1pdHRlciBHb2xkQXJvd2FuYSA8MjczOTkzNDkrR29sZEFyb3dhbmFAdXNlcnMu
+          bm9yZXBseS5naXRodWIuY29tPiAxNzk1NzE4MzQ2ICswODAwCgpQcmVzZXJ2ZSB0aGUgZmluYWwg
+          Y3VtdWxhdGl2ZSBBU1IgdG9rZW4gbGltaXQgaW4gU1NFCgpDb2RleCBwcmVwYXJlZCB0aGUgaW1w
+          bGVtZW50YXRpb24gYW5kIHJlZ3Jlc3Npb24gdW5kZXIgdGhlIGNvbmZpZ3VyZWQgY29udHJpYnV0
+          b3IgYWNjb3VudC4K
+          COMMIT_B64
+
+          git apply --check --index "$RUNNER_TEMP/sglang-candidate.diff"
+          git apply --index "$RUNNER_TEMP/sglang-candidate.diff"
+          test "$(git write-tree)" = "$HEAD_TREE"
+          test "$(git hash-object -t commit -w --stdin < "$RUNNER_TEMP/sglang-candidate.commit")" = "$HEAD_SHA"
+          test "$(git rev-parse "$HEAD_SHA^")" = "$BASE_SHA"
+          test "$(git rev-parse "$HEAD_SHA^{tree}")" = "$HEAD_TREE"
+          printf '%s\n' "$SERVING_FILE" "$HELPER_FILE" "$TEST_FILE" | LC_ALL=C sort > "$RUNNER_TEMP/expected-paths.txt"
+          git diff --name-only "$BASE_SHA" "$HEAD_SHA" | LC_ALL=C sort | diff - "$RUNNER_TEMP/expected-paths.txt"
+
+          git show "$HEAD_SHA:$TEST_FILE" > "$RUNNER_TEMP/asr_regression.py"
+          git reset --hard "$BASE_SHA"
+          test "$(git rev-parse HEAD)" = "$BASE_SHA"
+          test "$(git rev-parse 'HEAD^{tree}')" = "$BASE_TREE"
+          test -z "$(git status --porcelain --untracked-files=all)"
+          printf 'Verified base %s tree %s and candidate %s tree %s\n' "$BASE_SHA" "$BASE_TREE" "$HEAD_SHA" "$HEAD_TREE"
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+        with:
+          python-version: "3.12"
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@d4b2f3b6ecc6e67c4457f6d3e41ec42d3d0fcb86
+        with:
+          enable-cache: false
+
+      - name: Install upstream CPU dependencies
+        shell: bash
+        working-directory: verified-source
+        timeout-minutes: 24
+        env:
+          UV_SYSTEM_PYTHON: "1"
+        run: |
+          set -Eeuo pipefail
+          bash scripts/ci/utils/install_rust_protoc.sh
+          uv pip install -e 'python[dev]' --index-strategy unsafe-best-match --prerelease allow
+          git diff HEAD --exit-code
+          python3 - <<'PYVERIFY'
+          import importlib.util
+          import sys
+          from pathlib import Path
+          import torch
+
+          assert sys.version_info[:2] == (3, 12)
+          assert not torch.cuda.is_available()
+          origin = Path(importlib.util.find_spec("sglang").origin).resolve()
+          assert origin == (Path.cwd() / "python/sglang/__init__.py").resolve(), origin
+          print(f"Python {sys.version.split()[0]}, torch {torch.__version__}, source {origin}")
+          PYVERIFY
+
+      - name: Run the same regression on base and candidate
+        shell: bash
+        working-directory: verified-source
+        timeout-minutes: 13
+        run: |
+          set -Eeuo pipefail
+          baseline_log="$RUNNER_TEMP/asr-baseline.log"
+          test "$(git rev-parse HEAD)" = "$BASE_SHA"
+          test "$(git rev-parse 'HEAD^{tree}')" = "$BASE_TREE"
+          python3 "$TEST_FILE"
+          probe_exit=0
+          python3 "$RUNNER_TEMP/asr_regression.py" TestCumulativeASRStream.test_finish_reason_follows_final_prefix > "$baseline_log" 2>&1 || probe_exit=$?
+          cat "$baseline_log"
+          test "$probe_exit" = 1
+          grep '^FAIL:' "$baseline_log" | tee "$RUNNER_TEMP/asr-baseline-failures.txt"
+          test "$(wc -l < "$RUNNER_TEMP/asr-baseline-failures.txt")" = 3
+          for scenario in 'single prefix truncated' 'final prefix truncated' 'empty prefix truncated'; do
+            grep -F "(name='$scenario')" "$RUNNER_TEMP/asr-baseline-failures.txt"
+          done
+          grep -F 'FAILED (failures=3)' "$baseline_log"
+          git diff HEAD --exit-code
+
+          git checkout --quiet --detach "$HEAD_SHA"
+          test "$(git rev-parse HEAD)" = "$HEAD_SHA"
+          test "$(git rev-parse 'HEAD^{tree}')" = "$HEAD_TREE"
+          cmp "$RUNNER_TEMP/asr_regression.py" "$TEST_FILE"
+          python3 "$TEST_FILE" 2>&1 | tee "$RUNNER_TEMP/asr-head-direct.log"
+          grep -E '^Ran [1-9][0-9]* tests? in ' "$RUNNER_TEMP/asr-head-direct.log"
+          printf '%s\n' "$TEST_FILE" > "$RUNNER_TEMP/asr-files.txt"
+          python3 test/run_suite.py --hw cpu --suite base-a-test-cpu --only-file-list "$RUNNER_TEMP/asr-files.txt" --max-attempts 1 2>&1 | tee "$RUNNER_TEMP/asr-head-dispatch.log"
+          grep -F 'Test Summary: 1/1 passed' "$RUNNER_TEMP/asr-head-dispatch.log"
+          git diff HEAD --exit-code
+
+  lint:
+    if: github.repository == 'GoldArowana/sglang' && github.ref == 'refs/heads/codex-validate/sglang-asr-final-cd8fc4a5'
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      GIT_TERMINAL_PROMPT: "0"
+      BASE_SHA: 07a17a305cf017ccc7995d2bf23841ec9e219d44
+      BASE_TREE: 63917a61267a248f966b6118fdb3f4396c76df53
+      HEAD_SHA: 641d698fa5f90b2f78cfcbff1931b5d18c8c63f3
+      HEAD_TREE: 5865598d954db26968e669cf714af6ab00975bcd
+      SERVING_FILE: python/sglang/srt/entrypoints/openai/serving_transcription.py
+      HELPER_FILE: python/sglang/srt/entrypoints/openai/streaming_asr.py
+      TEST_FILE: test/registered/unit/entrypoints/openai/test_serving_transcription.py
+    steps:
+      - name: Verify exact upstream base and reconstruct candidate
+        shell: bash
+        timeout-minutes: 7
+        run: |
+          set -Eeuo pipefail
+          test "$GITHUB_EVENT_NAME" = push
+          git init --quiet verified-source
+          cd verified-source
+          git fetch --no-tags --depth=1 https://github.com/sgl-project/sglang.git "$BASE_SHA"
+          test "$(git rev-parse FETCH_HEAD)" = "$BASE_SHA"
+          git checkout --quiet --detach "$BASE_SHA"
+          test "$(git rev-parse 'HEAD^{tree}')" = "$BASE_TREE"
+          test -z "$(git status --porcelain --untracked-files=all)"
+
+          base64 --decode > "$RUNNER_TEMP/sglang-candidate.diff" <<'DIFF_B64'
+          ZGlmZiAtLWdpdCBhL3B5dGhvbi9zZ2xhbmcvc3J0L2VudHJ5cG9pbnRzL29wZW5haS9zZXJ2aW5n
+          X3RyYW5zY3JpcHRpb24ucHkgYi9weXRob24vc2dsYW5nL3NydC9lbnRyeXBvaW50cy9vcGVuYWkv
+          c2VydmluZ190cmFuc2NyaXB0aW9uLnB5CmluZGV4IDQ1ZmRlOTEzMDAyYmE4YjQyOTFmMmQ2MmJh
+          N2JkNDlhNzMwMzMxZjIuLmY0NjdmMzNjNWNkNGMzZTJmNWQ5NTExMmJlM2EyOWFjY2UwMzI0NTIg
+          MTAwNjQ0Ci0tLSBhL3B5dGhvbi9zZ2xhbmcvc3J0L2VudHJ5cG9pbnRzL29wZW5haS9zZXJ2aW5n
+          X3RyYW5zY3JpcHRpb24ucHkKKysrIGIvcHl0aG9uL3NnbGFuZy9zcnQvZW50cnlwb2ludHMvb3Bl
+          bmFpL3NlcnZpbmdfdHJhbnNjcmlwdGlvbi5weQpAQCAtNzc3LDcgKzc3Nyw3IEBAIGNsYXNzIE9w
+          ZW5BSVNlcnZpbmdUcmFuc2NyaXB0aW9uKE9wZW5BSVNlcnZpbmdCYXNlKToKICAgICAgICAgICAg
+          ICAgICAgICAgICAgICkKICAgICAgICAgICAgICAgICAgICAgICAgIHlpZWxkIGYiZGF0YToge2No
+          dW5rX3Jlc3AubW9kZWxfZHVtcF9qc29uKCl9XG5cbiIKIAotICAgICAgICAgICAgIyBTZW5kIGZp
+          bmFsIHN0b3AKKyAgICAgICAgICAgICMgVGhlIGZpbmFsIHByZWZpeCBzdXBlcnNlZGVzIHRva2Vu
+          IGNhcHMgb24gcHJvdmlzaW9uYWwgcHJlZml4ZXMuCiAgICAgICAgICAgICBjaHVua19yZXNwID0g
+          VHJhbnNjcmlwdGlvblN0cmVhbVJlc3BvbnNlKAogICAgICAgICAgICAgICAgIGlkPXJlcXVlc3Rf
+          aWQsCiAgICAgICAgICAgICAgICAgY3JlYXRlZD1jcmVhdGVkX3RpbWUsCkBAIC03ODUsNyArNzg1
+          LDkgQEAgY2xhc3MgT3BlbkFJU2VydmluZ1RyYW5zY3JpcHRpb24oT3BlbkFJU2VydmluZ0Jhc2Up
+          OgogICAgICAgICAgICAgICAgIGNob2ljZXM9WwogICAgICAgICAgICAgICAgICAgICBUcmFuc2Ny
+          aXB0aW9uU3RyZWFtQ2hvaWNlKAogICAgICAgICAgICAgICAgICAgICAgICAgZGVsdGE9RGVsdGFN
+          ZXNzYWdlKCksCi0gICAgICAgICAgICAgICAgICAgICAgICBmaW5pc2hfcmVhc29uPSJzdG9wIiwK
+          KyAgICAgICAgICAgICAgICAgICAgICAgIGZpbmlzaF9yZWFzb249KAorICAgICAgICAgICAgICAg
+          ICAgICAgICAgICAgICJsZW5ndGgiIGlmIHN0YXRlLmZpbmFsX291dHB1dF90cnVuY2F0ZWQgZWxz
+          ZSAic3RvcCIKKyAgICAgICAgICAgICAgICAgICAgICAgICksCiAgICAgICAgICAgICAgICAgICAg
+          ICkKICAgICAgICAgICAgICAgICBdLAogICAgICAgICAgICAgKQpkaWZmIC0tZ2l0IGEvcHl0aG9u
+          L3NnbGFuZy9zcnQvZW50cnlwb2ludHMvb3BlbmFpL3N0cmVhbWluZ19hc3IucHkgYi9weXRob24v
+          c2dsYW5nL3NydC9lbnRyeXBvaW50cy9vcGVuYWkvc3RyZWFtaW5nX2Fzci5weQppbmRleCA3ZDRl
+          MDcwYzFmYjNjZDU5M2VjOTBmNjEwNDdiNmQ4MzA3N2UxNmJiLi4yMzc2MzVlZjU5NzYyMGY5ZDcz
+          NjlkZGFmMDY4YTM4MWM0ZjExNDhlIDEwMDY0NAotLS0gYS9weXRob24vc2dsYW5nL3NydC9lbnRy
+          eXBvaW50cy9vcGVuYWkvc3RyZWFtaW5nX2Fzci5weQorKysgYi9weXRob24vc2dsYW5nL3NydC9l
+          bnRyeXBvaW50cy9vcGVuYWkvc3RyZWFtaW5nX2Fzci5weQpAQCAtNDUsNiArNDUsNyBAQCBjbGFz
+          cyBTdHJlYW1pbmdBU1JTdGF0ZToKICAgICBlbWl0dGVkX3RleHQ6IHN0ciA9ICIiCiAgICAgZnVs
+          bF90cmFuc2NyaXB0OiBzdHIgPSAiIgogICAgIGNodW5rX2luZGV4OiBpbnQgPSAwCisgICAgZmlu
+          YWxfb3V0cHV0X3RydW5jYXRlZDogYm9vbCA9IEZhbHNlCiAKICAgICBkZWYgZ2V0X3ByZWZpeF90
+          ZXh0KHNlbGYpIC0+IHN0cjoKICAgICAgICAgaWYgc2VsZi5jaHVua19pbmRleCA8IHNlbGYudW5m
+          aXhlZF9jaHVua19udW0gb3Igbm90IHNlbGYuZW1pdHRlZF90ZXh0OgpAQCAtMjA1LDYgKzIwNiw4
+          IEBAIGFzeW5jIGRlZiBwcm9jZXNzX2Fzcl9jaHVuaygKICAgICB0ZXh0ID0gbm9ybWFsaXplX3do
+          aXRlc3BhY2UoYWRhcHRlci5wb3N0cHJvY2Vzc190ZXh0KHJldC5nZXQoInRleHQiLCAiIikpKQog
+          CiAgICAgaWYgaXNfbGFzdDoKKyAgICAgICAgZmluaXNoX3JlYXNvbiA9IHJldC5nZXQoIm1ldGFf
+          aW5mbyIsIHt9KS5nZXQoImZpbmlzaF9yZWFzb24iKSBvciB7fQorICAgICAgICBzdGF0ZS5maW5h
+          bF9vdXRwdXRfdHJ1bmNhdGVkID0gZmluaXNoX3JlYXNvbi5nZXQoInR5cGUiKSA9PSAibGVuZ3Ro
+          IgogICAgICAgICBzdGF0ZS5mdWxsX3RyYW5zY3JpcHQgPSB0ZXh0CiAgICAgICAgIHJldHVybiBz
+          dGF0ZS5maW5hbGl6ZSgpCiAgICAgcmV0dXJuIHN0YXRlLnVwZGF0ZSh0ZXh0KQpkaWZmIC0tZ2l0
+          IGEvdGVzdC9yZWdpc3RlcmVkL3VuaXQvZW50cnlwb2ludHMvb3BlbmFpL3Rlc3Rfc2VydmluZ190
+          cmFuc2NyaXB0aW9uLnB5IGIvdGVzdC9yZWdpc3RlcmVkL3VuaXQvZW50cnlwb2ludHMvb3BlbmFp
+          L3Rlc3Rfc2VydmluZ190cmFuc2NyaXB0aW9uLnB5CmluZGV4IDUzMWE3YTA3ODBkMmUyMmNkNTE4
+          OTU3M2E1MjU3YWQ1MGYyZjllZDQuLmM5NWNlOThjOTA4MzMxODVkZTI0MGU3ZWI5MzIyNzI0Mjhl
+          M2VjY2EgMTAwNjQ0Ci0tLSBhL3Rlc3QvcmVnaXN0ZXJlZC91bml0L2VudHJ5cG9pbnRzL29wZW5h
+          aS90ZXN0X3NlcnZpbmdfdHJhbnNjcmlwdGlvbi5weQorKysgYi90ZXN0L3JlZ2lzdGVyZWQvdW5p
+          dC9lbnRyeXBvaW50cy9vcGVuYWkvdGVzdF9zZXJ2aW5nX3RyYW5zY3JpcHRpb24ucHkKQEAgLTMy
+          NSw2ICszMjUsNzggQEAgZGVmIF9sb25nX3dhdl9ieXRlcyhkdXJhdGlvbl9zOiBmbG9hdCA9IDY1
+          LjApIC0+IGJ5dGVzOgogICAgIHJldHVybiBidWYuZ2V0dmFsdWUoKQogCiAKK2NsYXNzIFRlc3RD
+          dW11bGF0aXZlQVNSU3RyZWFtKEN1c3RvbVRlc3RDYXNlKToKKyAgICBkZWYgc2V0VXAoc2VsZik6
+          CisgICAgICAgIHJlc2V0X2NvbnRleHQoKQorICAgICAgICBzZWxmLmFkZENsZWFudXAocmVzZXRf
+          Y29udGV4dCkKKyAgICAgICAgcHVibGlzaCgKKyAgICAgICAgICAgIFNlcnZlckFyZ3MobW9kZWxf
+          cGF0aD0iZHVtbXkiLCBhc3JfbWF4X2NvbmN1cnJlbnRfc2Vzc2lvbnM9MzIpLAorICAgICAgICAg
+          ICAgcm9sZT0idG9rZW5pemVyIiwKKyAgICAgICAgKQorCisgICAgZGVmIHRlc3RfZmluaXNoX3Jl
+          YXNvbl9mb2xsb3dzX2ZpbmFsX3ByZWZpeChzZWxmKToKKyAgICAgICAgIiIiQSBjYXBwZWQgZmlu
+          YWwgdHJhbnNjcmlwdCBtdXN0IHJlcG9ydCB0cnVuY2F0aW9uIGluIGl0cyB0ZXJtaW5hbCBldmVu
+          dC4iIiIKKyAgICAgICAgZmlyc3QgPSAib25lIHR3byB0aHJlZSBmb3VyIGZpdmUgc2l4IgorICAg
+          ICAgICBmaW5hbCA9IGZpcnN0ICsgIiBzZXZlbiIKKyAgICAgICAgY2FzZXMgPSAoCisgICAgICAg
+          ICAgICAoInNpbmdsZSBwcmVmaXggdHJ1bmNhdGVkIiwgWygicGFydGlhbCIsICJsZW5ndGgiKV0s
+          ICJwYXJ0aWFsIiwgImxlbmd0aCIpLAorICAgICAgICAgICAgKAorICAgICAgICAgICAgICAgICJm
+          aW5hbCBwcmVmaXggdHJ1bmNhdGVkIiwKKyAgICAgICAgICAgICAgICBbKGZpcnN0LCAic3RvcCIp
+          LCAoZmluYWwsICJsZW5ndGgiKV0sCisgICAgICAgICAgICAgICAgZmluYWwsCisgICAgICAgICAg
+          ICAgICAgImxlbmd0aCIsCisgICAgICAgICAgICApLAorICAgICAgICAgICAgKAorICAgICAgICAg
+          ICAgICAgICJwcm92aXNpb25hbCBsaW1pdCByZWNvdmVyZWQiLAorICAgICAgICAgICAgICAgIFso
+          Zmlyc3QsICJsZW5ndGgiKSwgKGZpbmFsLCAic3RvcCIpXSwKKyAgICAgICAgICAgICAgICBmaW5h
+          bCwKKyAgICAgICAgICAgICAgICAic3RvcCIsCisgICAgICAgICAgICApLAorICAgICAgICAgICAg
+          KCJtaXNzaW5nIG1ldGFkYXRhIiwgWygiZmFsbGJhY2siLCBOb25lKV0sICJmYWxsYmFjayIsICJz
+          dG9wIiksCisgICAgICAgICAgICAoImVtcHR5IHByZWZpeCB0cnVuY2F0ZWQiLCBbKCIiLCAibGVu
+          Z3RoIildLCAiIiwgImxlbmd0aCIpLAorICAgICAgICApCisKKyAgICAgICAgZm9yIG5hbWUsIHJl
+          cGxpZXMsIGV4cGVjdGVkX3RleHQsIGV4cGVjdGVkX3JlYXNvbiBpbiBjYXNlczoKKyAgICAgICAg
+          ICAgIHdpdGggc2VsZi5zdWJUZXN0KG5hbWU9bmFtZSk6CisgICAgICAgICAgICAgICAgdG0gPSBf
+          TW9ja0NodW5rVG9rZW5pemVyTWFuYWdlcigKKyAgICAgICAgICAgICAgICAgICAgW1tfY2h1bmso
+          dGV4dCwgZmluaXNoPXJlYXNvbildIGZvciB0ZXh0LCByZWFzb24gaW4gcmVwbGllc10KKyAgICAg
+          ICAgICAgICAgICApCisgICAgICAgICAgICAgICAgdG0ubW9kZWxfY29uZmlnLmhmX2NvbmZpZy5h
+          cmNoaXRlY3R1cmVzID0gWworICAgICAgICAgICAgICAgICAgICAiUXdlbjNBU1JGb3JDb25kaXRp
+          b25hbEdlbmVyYXRpb24iCisgICAgICAgICAgICAgICAgXQorICAgICAgICAgICAgICAgIHNlcnZp
+          bmcgPSBPcGVuQUlTZXJ2aW5nVHJhbnNjcmlwdGlvbih0bSkKKyAgICAgICAgICAgICAgICByYXdf
+          cmVxdWVzdCA9IE1vY2soaGVhZGVycz17fSkKKyAgICAgICAgICAgICAgICByYXdfcmVxdWVzdC5p
+          c19kaXNjb25uZWN0ZWQgPSBBc3luY01vY2socmV0dXJuX3ZhbHVlPUZhbHNlKQorCisgICAgICAg
+          ICAgICAgICAgYXN5bmMgZGVmIGRyaXZlKCk6CisgICAgICAgICAgICAgICAgICAgIHJlc3BvbnNl
+          ID0gYXdhaXQgc2VydmluZy5jcmVhdGVfdHJhbnNjcmlwdGlvbigKKyAgICAgICAgICAgICAgICAg
+          ICAgICAgIGF1ZGlvX2RhdGE9X2xvbmdfd2F2X2J5dGVzKGR1cmF0aW9uX3M9MiAqIGxlbihyZXBs
+          aWVzKSAtIDEpLAorICAgICAgICAgICAgICAgICAgICAgICAgbW9kZWw9IlF3ZW4vUXdlbjMtQVNS
+          LTAuNkIiLAorICAgICAgICAgICAgICAgICAgICAgICAgbGFuZ3VhZ2U9ImVuIiwKKyAgICAgICAg
+          ICAgICAgICAgICAgICAgIHJlc3BvbnNlX2Zvcm1hdD0ianNvbiIsCisgICAgICAgICAgICAgICAg
+          ICAgICAgICB0ZW1wZXJhdHVyZT0wLjAsCisgICAgICAgICAgICAgICAgICAgICAgICBzdHJlYW09
+          VHJ1ZSwKKyAgICAgICAgICAgICAgICAgICAgICAgIHJhd19yZXF1ZXN0PXJhd19yZXF1ZXN0LAor
+          ICAgICAgICAgICAgICAgICAgICApCisgICAgICAgICAgICAgICAgICAgIHNlbGYuYXNzZXJ0RXF1
+          YWwocmVzcG9uc2UubWVkaWFfdHlwZSwgInRleHQvZXZlbnQtc3RyZWFtIikKKyAgICAgICAgICAg
+          ICAgICAgICAgcmV0dXJuIFtmcmFtZSBhc3luYyBmb3IgZnJhbWUgaW4gcmVzcG9uc2UuYm9keV9p
+          dGVyYXRvcl0KKworICAgICAgICAgICAgICAgIGZyYW1lcyA9IGdldF9vcl9jcmVhdGVfZXZlbnRf
+          bG9vcCgpLnJ1bl91bnRpbF9jb21wbGV0ZShkcml2ZSgpKQorICAgICAgICAgICAgICAgIHNlbGYu
+          YXNzZXJ0RXF1YWwoIiIuam9pbihfZGVsdGFzX2Zyb21fc3NlKGZyYW1lcykpLCBleHBlY3RlZF90
+          ZXh0KQorICAgICAgICAgICAgICAgIHNlbGYuYXNzZXJ0RXF1YWwoZnJhbWVzLmNvdW50KCJkYXRh
+          OiBbRE9ORV1cblxuIiksIDEpCisgICAgICAgICAgICAgICAgc2VsZi5hc3NlcnRFcXVhbChmcmFt
+          ZXNbLTFdLCAiZGF0YTogW0RPTkVdXG5cbiIpCisgICAgICAgICAgICAgICAgY2hvaWNlcyA9IFsK
+          KyAgICAgICAgICAgICAgICAgICAganNvbi5sb2FkcyhmcmFtZS5yZW1vdmVwcmVmaXgoImRhdGE6
+          ICIpKVsiY2hvaWNlcyJdWzBdCisgICAgICAgICAgICAgICAgICAgIGZvciBmcmFtZSBpbiBmcmFt
+          ZXNbOi0xXQorICAgICAgICAgICAgICAgIF0KKyAgICAgICAgICAgICAgICBzZWxmLmFzc2VydEVx
+          dWFsKAorICAgICAgICAgICAgICAgICAgICBbY2hvaWNlWyJmaW5pc2hfcmVhc29uIl0gZm9yIGNo
+          b2ljZSBpbiBjaG9pY2VzXSwKKyAgICAgICAgICAgICAgICAgICAgW05vbmVdICogKGxlbihjaG9p
+          Y2VzKSAtIDEpICsgW2V4cGVjdGVkX3JlYXNvbl0sCisgICAgICAgICAgICAgICAgKQorICAgICAg
+          ICAgICAgICAgIHNlbGYuYXNzZXJ0RXF1YWwobGVuKHRtLnJlcXVlc3RzKSwgbGVuKHJlcGxpZXMp
+          KQorICAgICAgICAgICAgICAgIHNlbGYuYXNzZXJ0VHJ1ZShhbGwobm90IHJlcXVlc3Quc3RyZWFt
+          IGZvciByZXF1ZXN0IGluIHRtLnJlcXVlc3RzKSkKKworCiBjbGFzcyBUZXN0TG9uZ0F1ZGlvQ2h1
+          bmtlZE5vblN0cmVhbWluZyhDdXN0b21UZXN0Q2FzZSk6CiAgICAgIiIiQXVkaW8gbG9uZ2VyIHRo
+          YW4gV2hpc3BlcidzIDMwIHMgd2luZG93IG11c3QgYmUgc3BsaXQgaW50byBjaHVuawogICAgIHJl
+          cXVlc3RzIGFuZCB0aGUgdHJhbnNjcmlwdHMgc3RpdGNoZWQgaW4gb3JkZXIg4oCUIHdpdGhvdXQg
+          Y2h1bmtpbmcgdGhlCg==
+          DIFF_B64
+          base64 --decode > "$RUNNER_TEMP/sglang-candidate.commit" <<'COMMIT_B64'
+          dHJlZSA1ODY1NTk4ZDk1NGRiMjY5NjhlNjY5Y2Y3MTRhZjZhYjAwOTc1YmNkCnBhcmVudCAwN2Ex
+          N2EzMDVjZjAxN2NjYzc5OTVkMmJmMjM4NDFlYzllMjE5ZDQ0CmF1dGhvciBHb2xkQXJvd2FuYSA8
+          MjczOTkzNDkrR29sZEFyb3dhbmFAdXNlcnMubm9yZXBseS5naXRodWIuY29tPiAxNzk1NzE4MzQ2
+          ICswODAwCmNvbW1pdHRlciBHb2xkQXJvd2FuYSA8MjczOTkzNDkrR29sZEFyb3dhbmFAdXNlcnMu
+          bm9yZXBseS5naXRodWIuY29tPiAxNzk1NzE4MzQ2ICswODAwCgpQcmVzZXJ2ZSB0aGUgZmluYWwg
+          Y3VtdWxhdGl2ZSBBU1IgdG9rZW4gbGltaXQgaW4gU1NFCgpDb2RleCBwcmVwYXJlZCB0aGUgaW1w
+          bGVtZW50YXRpb24gYW5kIHJlZ3Jlc3Npb24gdW5kZXIgdGhlIGNvbmZpZ3VyZWQgY29udHJpYnV0
+          b3IgYWNjb3VudC4K
+          COMMIT_B64
+
+          git apply --check --index "$RUNNER_TEMP/sglang-candidate.diff"
+          git apply --index "$RUNNER_TEMP/sglang-candidate.diff"
+          test "$(git write-tree)" = "$HEAD_TREE"
+          test "$(git hash-object -t commit -w --stdin < "$RUNNER_TEMP/sglang-candidate.commit")" = "$HEAD_SHA"
+          test "$(git rev-parse "$HEAD_SHA^")" = "$BASE_SHA"
+          test "$(git rev-parse "$HEAD_SHA^{tree}")" = "$HEAD_TREE"
+          printf '%s\n' "$SERVING_FILE" "$HELPER_FILE" "$TEST_FILE" | LC_ALL=C sort > "$RUNNER_TEMP/expected-paths.txt"
+          git diff --name-only "$BASE_SHA" "$HEAD_SHA" | LC_ALL=C sort | diff - "$RUNNER_TEMP/expected-paths.txt"
+
+          git show "$HEAD_SHA:$TEST_FILE" > "$RUNNER_TEMP/asr_regression.py"
+          git reset --hard "$BASE_SHA"
+          test "$(git rev-parse HEAD)" = "$BASE_SHA"
+          test "$(git rev-parse 'HEAD^{tree}')" = "$BASE_TREE"
+          test -z "$(git status --porcelain --untracked-files=all)"
+          git checkout --quiet --detach "$HEAD_SHA"
+          test "$(git rev-parse HEAD)" = "$HEAD_SHA"
+          test "$(git rev-parse 'HEAD^{tree}')" = "$HEAD_TREE"
+          test -z "$(git status --porcelain --untracked-files=all)"
+          printf 'Verified base %s tree %s and candidate %s tree %s\n' "$BASE_SHA" "$BASE_TREE" "$HEAD_SHA" "$HEAD_TREE"
+
+      - name: Set up official lint's Python 3.12
+        uses: actions/setup-python@7f4fc3e22c37d6ff65e88745f38bd3157c663f7c
+        with:
+          python-version: "3.12"
+
+      - name: Set up official lint's Node 20
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: "20"
+
+      - name: Install pre-commit and check the official runner tools
+        shell: bash
+        working-directory: verified-source
+        timeout-minutes: 6
+        run: |
+          set -Eeuo pipefail
+          test "$(git rev-parse HEAD)" = "$HEAD_SHA"
+          matches="$(git ls-files -- docs_new)"
+          test -z "$matches"
+          python3 --version
+          node --version
+          rustc --version
+          cargo clippy --version
+          cargo fmt --version
+          python3 -m pip install 'pre-commit==4.5.1'
+          pre-commit --version
+          pre-commit install
+
+      - name: Run the official all-files pre-commit command on the candidate
+        shell: bash
+        working-directory: verified-source
+        timeout-minutes: 30
+        run: |
+          set -Eeuo pipefail
+          test "$(git rev-parse HEAD)" = "$HEAD_SHA"
+          test "$(git rev-parse 'HEAD^{tree}')" = "$HEAD_TREE"
+          SKIP=no-commit-to-branch pre-commit run --all-files --show-diff-on-failure
+          git diff HEAD --exit-code
+          test "$(git rev-parse HEAD)" = "$HEAD_SHA"
+          test "$(git rev-parse 'HEAD^{tree}')" = "$HEAD_TREE"
